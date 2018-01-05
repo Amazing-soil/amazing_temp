@@ -288,6 +288,26 @@ def witchapp():
     else:
         return 'Fc'
 
+def check_squid_conf():
+    '''检查全局被动压缩配置，ok即存在'''
+    gzip_mod_check = commands.getoutput('grep -q mod_header_combination /usr/local/squid/etc/squid.conf && echo ok')
+    '''检查全局0方向是否配置删除特殊头，4即配置完整'''
+    del_0_header_check = commands.getoutput('egrep -c "(mod_header 0 del).*(allow all)" /usr/local/squid/etc/squid.conf')
+    '''检查所需日志特殊字段是否配置，ok即配置'''
+    squid_log_check = commands.getoutput('egrep "(logformat squid_custom_log)" /usr/local/squid/etc/squid.conf|grep -q -e "$AE" -e "$PB" && echo ok')
+    if gzip_mod_check == 'ok':
+        print u'全局配置被动压缩，压缩非压缩存两份，注意同文件会miss两次'.encode('utf8')
+    else:
+        print u'全局未配置被动压缩，压缩非压缩存一份，可能存在缓存问题，请确认功能需求'.encode('utf8')
+    if del_0_header_check == '4':
+        print u'设备已全局配置删除0方向影响缓存的特殊头'.encode('utf8')
+    else:
+        print u'设备未配置删除0方向影响缓存的特殊头，建议尝试配置删除0方向的Cache-Control If-None-Match If-Match If-Unmodified-Since'.encode('utf8')
+    if squid_log_check == 'ok':
+        return 1
+    else:
+        return 0
+
 def LogTogether(filenamelist):
     '''将筛选访问日志聚合'''
     #print u'\n正在打开日志包...'.encode('utf8')
@@ -341,7 +361,8 @@ if __name__ == '__main__':
     '''hpcc检查存储日志404文件是否异常'''
     if app == 'Hpcc' or app == 'ATS' :
         Hpc_sta(app, url, Time_use['starttime'], Time_use['endtime'])
-
+    '''检查squid关键配置'''
+    log_flag = check_squid_conf()
     greplogpath = LogTogether(GetFileName(Time_use['starttime'],Time_use['endtime'] ))
     opts_dir = {}
 
@@ -357,6 +378,8 @@ if __name__ == '__main__':
         slowtype_sum = {'slowrt': {}, 'slowspeed': {}}
         flow_url = {}
         flow_type = {}
+        num_url = {}
+        special_log = {}
         request_flow = {'GET': int(0), 'POST': int(0), 'HEAD': int(0)}
         sum_ua = {}
         size0Url = []
@@ -408,6 +431,22 @@ if __name__ == '__main__':
             LineItem['Upper'] = line.split()[8].split(':')[0].split('/')[-1]
             LineItem['UA'] = line.split('\"')[3]
             LineItem['hitstate'] = {'-': 'hit', '': 'hit'}.get(LineItem['Upper'], 'unhit')
+            # 若存在特殊日志字段，对应url收集
+            if log_flag == 1:
+                if LineItem['hitstate'] == 'unhit':
+                    if not special_log.has_key(LineItem['Url']):
+                        special_log[LineItem['Url']] = {'$AE': {'gzip': 0, 'ungzip': 0}, '$PB': []}
+                    for j in line.split('@in#(')[1].split('^~'):
+                        if 'PB' in j:
+                            if '-' not in j:
+                                hash_squid = j.split('.')[1]
+                                if hash_squid not in special_log[LineItem['Url']]['$PB']:
+                                    special_log[LineItem['Url']]['$PB'].append(hash_squid)
+                        if 'AE=' in j:
+                            if j.split('=')[1] == 'gzip':
+                                special_log[LineItem['Url']]['$AE']['gzip'] += 1
+                            else:
+                                special_log[LineItem['Url']]['$AE']['ungzip'] += 1
             # 匹配日志数+1
             if LineItem['hitstate'] == 'unhit':
                 sumnum_mate += 1
@@ -430,6 +469,11 @@ if __name__ == '__main__':
                 if flow_url.get('sum_flow') is None:
                     flow_url['sum_flow'] = 0.0
                 flow_url['sum_flow'] += LineItem['Size']
+            #url数量统计
+            if LineItem['hitstate'] == 'unhit':
+                if num_url.get(LineItem['Url']) is None:
+                    num_url[LineItem['Url']] = 0
+                num_url[LineItem['Url']] += 1
             # url流量统计
             if LineItem['hitstate'] == 'unhit':
                 if flow_url.get(LineItem['UrlRange']) is None:
@@ -459,8 +503,6 @@ if __name__ == '__main__':
             print '\t{0} \t{1}%\t{2}KB'.format(k, round(float(v) / float(flow_url['sum_flow']), 2) * 100, v)
         # 网民UA占比 top 20
         print u'\n网民UA占比 top 10'.encode('utf8')
-        print u'网民UA占比若很集中，可能是客户端特殊请求头导致为遵循缓存策略，可尝试配置删除0方向的Cache-Control If-None-Match If-Match If-Unmodified-Since'.encode(
-            'utf8')
         top_sum_ua = sorted(sum_ua.iteritems(), key=lambda d: d[1], reverse=True)
         for k, v in top_sum_ua[0:10]:
             print '\t{0}\t{1}%\t{2}'.format(v, round(float(v) / float(sumnum_mate), 4) * 100, k)
@@ -474,5 +516,14 @@ if __name__ == '__main__':
         top_flow_url = sorted(flow_url.iteritems(), key=lambda d: d[1], reverse=True)[:11]
         for item in top_flow_url:
             print u'\t{0}MB\t{1}'.format(round(item[1] / 1024.0, 2), item[0])
+        #url数量 top 5
+        print u'请求url次数 TOP 5 :'.encode('utf8')
+        top_num_url = sorted(num_url.iteritems(), key=lambda d: d[1], reverse=True)[:5]
+        print u'\t{0}\t{1}\t{2:>5}\t{3}'.format('次数', '压缩\非压缩', 'hash个数', 'URL').encode('utf8')
+        for item in top_num_url:
+            print u'\t{0:<7}\t{1}\{2:<7}\t{3:<10}\t{4}'.format(item[1],
+                                                               special_log[item[0]]['$AE']['gzip'],
+                                                               special_log[item[0]]['$AE']['ungzip'],
+                                                               len(special_log[item[0]]['$PB']), item[0])
         os.remove(greplogpath)
         tc.end(0)
