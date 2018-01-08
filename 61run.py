@@ -42,9 +42,12 @@ num_url = {}
 with open('C:\\Users\\yao.liu\\Desktop\\test.log','r') as fn:
     for i in fn.readlines():
         LineItem['Url'] = i.split()[6].split('?')[0]
+        LineItem['Date'] = i.split()[0]
         # 特殊日志字段收集，对应url
         if not special_log.has_key(LineItem['Url']):
-            special_log[LineItem['Url']] = {'$AE':{'gzip': 0, 'ungzip': 0},'$PB':[]}
+            special_log[LineItem['Url']] = {'$AE':{'gzip': 0, 'ungzip': 0},'$PB':[],'Time':[]}
+        if LineItem['Date'] not in special_log[LineItem['Url']]['Time']:
+            special_log[LineItem['Url']]['Time'].append(LineItem['Date'])
         for j in i.split('@in#(')[1].split('^~'):
             if 'PB' in j:
                 if '-' not in j:
@@ -64,12 +67,13 @@ with open('C:\\Users\\yao.liu\\Desktop\\test.log','r') as fn:
 #url数量 top 5
 print u'请求url次数 TOP 5 :'.encode('utf8')
 top_num_url = sorted(num_url.iteritems(), key=lambda d: d[1], reverse=True)[:5]
-for item in top_num_url:
+#for item in top_num_url:
     # print special_log[item[0]]['$AE']['gzip'],special_log[item[0]]['$AE']['ungzip']
     # print len(special_log[item[0]]['$PB'])
-    print u'\t{0}\t{1}\t{2:>5}\t{3}'.format('次数','压缩\非压缩','hash个数','URL').encode('utf8')
-    for item in top_num_url:
-        print u'\t{0:<10}\t{1}\{2:<7}\t{3:<5}\t{4}'.format(item[1],
-                                                           special_log[item[0]]['$AE']['gzip'],
-                                                           special_log[item[0]]['$AE']['ungzip'],
-                                                           len(special_log[item[0]]['$PB']),item[0])
+print u'\t{0}\t{1}\t{2:>3}\t{3:>5}\t{4}'.format('次数','压缩\非压缩','hash个数','时间戳个数','URL').encode('utf8')
+for item in top_num_url:
+    print u'\t{0:<10}\t{1}\{2:<5}\t{3:<8}\t{4:<9}\t{5}'.format(item[1],
+                                                       special_log[item[0]]['$AE']['gzip'],
+                                                       special_log[item[0]]['$AE']['ungzip'],
+                                                       len(special_log[item[0]]['$PB']),
+                                                       len(special_log[item[0]]['Time']),item[0])

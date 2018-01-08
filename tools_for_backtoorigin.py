@@ -3,9 +3,9 @@
 # @Time    : 07/11/2017 14:41
 # @Author  : yao.liu
 # @File    : tools_for_backtoorigin.py
-# version  : 1.1
+# version  : 1.2
 __author__ = 'yao.liu'
-__version__ = 'v1.1'
+__version__ = 'v1.2'
 __scriptname__ = 'tools_for_backtoorigin.py'
 
 import json
@@ -492,7 +492,9 @@ if __name__ == '__main__':
             if log_flag == 1:
                 if LineItem['hitstate'] == 'unhit':
                     if not special_log.has_key(LineItem['Url']):
-                        special_log[LineItem['Url']] = {'$AE': {'gzip': 0, 'ungzip': 0}, '$PB': []}
+                        special_log[LineItem['Url']] = {'$AE': {'gzip': 0, 'ungzip': 0}, '$PB': [], 'Time': []}
+                    if LineItem['Date'] not in special_log[LineItem['Url']]['Time']:
+                        special_log[LineItem['Url']]['Time'].append(LineItem['Date'])
                     for j in line.split('@in#(')[1].split('^~'):
                         if 'PB' in j:
                             if '-' not in j:
@@ -576,11 +578,12 @@ if __name__ == '__main__':
         #url数量 top 5
         print u'\n请求url次数 TOP 5 :'.encode('utf8')
         top_num_url = sorted(num_url.iteritems(), key=lambda d: d[1], reverse=True)[:5]
-        print u'\t{0}\t{1}\t{2:>5}\t{3}'.format('次数', '压缩\非压缩', 'hash个数', 'URL').encode('utf8')
+        print u'\t{0}\t{1:>7}\t{2:>3}\t{3:>5}\t{4}'.format('次数', '压缩\非压缩', 'hash个数', '时间戳个数', 'URL').encode('utf8')
         for item in top_num_url:
-            print u'\t{0:<7}\t{1}\{2:<7}\t{3:<10}\t{4}'.format(item[1],
-                                                               special_log[item[0]]['$AE']['gzip'],
-                                                               special_log[item[0]]['$AE']['ungzip'],
-                                                               len(special_log[item[0]]['$PB']), item[0])
+            print u'\t{0:<7}\t{1:>3}\{2:<5}\t{3:<8}\t{4:<9}\t{5}'.format(item[1],
+                                                                       special_log[item[0]]['$AE']['gzip'],
+                                                                       special_log[item[0]]['$AE']['ungzip'],
+                                                                       len(special_log[item[0]]['$PB']),
+                                                                       len(special_log[item[0]]['Time']), item[0])
         os.remove(greplogpath)
         tc.end(0)
