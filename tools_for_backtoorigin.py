@@ -159,6 +159,56 @@ def FormatTimerange(timerange):
     print '开始时间:{0}\t结束时间:{1}'.format(int(starttime), int(endtime))
     return {'starttime': int(starttime), 'endtime': int(endtime)}
 
+def Product_time(Time_start, Time_end, type):
+    '''处理时间戳，返回portal接口需要的时间，和前一天同比时间,1为前一天'''
+    Tn_s = str(Time_start) + '0000'
+    Tn_e = str(Time_end) + '0000'
+    # 2 portal api time ('2017-12-20 08:00:00', '2017-12-20 09:00:00')
+    Time_s_zu = '{0}-{1}-{2} {3}:{4}:{5}'.format(Tn_s[0:4], Tn_s[4:6], Tn_s[6:8], Tn_s[8:10], Tn_s[10:12], Tn_s[12:14])
+    Time_e_zu = '{0}-{1}-{2} {3}:{4}:{5}'.format(Tn_e[0:4], Tn_e[4:6], Tn_e[6:8], Tn_e[8:10], Tn_e[10:12], Tn_e[12:14])
+    if type == 1:
+        # 1 前一天同比时间 ('2017-12-20 08:00:00', '2017-12-20 09:00:00')
+        Time_s_now = time.mktime(time.strptime(Time_s_zu, "%Y-%m-%d %H:%M:%S"))
+        Time_s_befor = (datetime.datetime.fromtimestamp(Time_s_now) - datetime.timedelta(days=1)).strftime("%Y%m%d%H")
+        Time_e_now = time.mktime(time.strptime(Time_e_zu, "%Y-%m-%d %H:%M:%S"))
+        Time_e_befor = (datetime.datetime.fromtimestamp(Time_e_now) - datetime.timedelta(days=1)).strftime("%Y%m%d%H")
+        return Time_s_befor + '-' + Time_e_befor
+    elif type == 2:
+        return Time_s_zu, Time_e_zu
+    elif type == 3:
+        # 3 es api time ('2017-12-22T10:00:09+0800','2017-12-22T11:20:09+0800')
+        Time_s_es = '{0}-{1}-{2}T{3}:{4}:{5}+0800'.format(Tn_s[0:4], Tn_s[4:6], Tn_s[6:8], Tn_s[8:10], Tn_s[10:12], Tn_s[12:14])
+        Time_e_es = '{0}-{1}-{2}T{3}:{4}:{5}+0800'.format(Tn_e[0:4], Tn_e[4:6], Tn_e[6:8], Tn_e[8:10], Tn_e[10:12], Tn_e[12:14])
+        return Time_s_es, Time_e_es
+
+def check_preload_info(channel, stime, etime):
+    '''根据频道查找客户ID'''
+    headers = {'content-type': 'application/x-www-form-urlencoded'}
+    url_rcms = 'http://223.202.204.189:81/Amazing61/seek_channel_info/'
+    data = {"channel": channel, "name": 'customerName'}
+    try:
+        res = requests.post(url_rcms, data=data, headers=headers)
+        ID = res.text
+    except:
+        return None
+    url_portal = 'http://223.202.204.189:81/Amazing61/seek_preload_sys/'
+    data = {"ID": ID, "stime": stime, "etime": etime}
+    try:
+        res = requests.post(url_portal, data=data, headers=headers)
+        return res.text
+    except:
+        return None
+
+def check_preload_shell_info(channel, stime, etime):
+    headers = {'content-type': 'application/x-www-form-urlencoded'}
+    url_shell = 'http://223.202.204.189:81/Amazing61/seek_preload_shell/'
+    data = {"channel": channel, "stime": stime, "etime": etime}
+    try:
+        res = requests.post(url_shell, data=data, headers=headers)
+        return res.text
+    except:
+        return None
+
 #print FormatTimerange('2017110808-2017110810')
 def Cachelog_analyzer(stime,etime):
     '''处理cache log，在时间范围内，匹配信息，定制输出'''
@@ -210,7 +260,7 @@ def Dev_inodes():
             print u'设备indoes已被写满，请联系设备负责人处理'.encode('utf8')
             print inodes_info
             return
-    print u'\n设备indoes使用正常'.encode('utf8')
+    print u'设备indoes使用正常'.encode('utf8')
 def Hpc_sta(hpcc_version,channel,starttime,endtime):
     '''统计hpcc存储日志404的top 10'''
     try:
@@ -351,6 +401,13 @@ if __name__ == '__main__':
     app = witchapp()
     logpath = {"Fc": "/data/proclog/log/squid/access/", "Hpcc": "/data/proclog/log/hpc/access/",
                "ATS": "/data/proclog/log/hpc/access/"}.get(app)
+    '''检查时间范围内是否有预加载行为'''
+    preload_time = Product_time(Time_use['starttime'], Time_use['endtime'],type=2)
+    preload_es_time = Product_time(Time_use['starttime'], Time_use['endtime'], type=3)
+    preload_num = check_preload_info(url, preload_time[0], preload_time[1])
+    preload_shell_info = check_preload_shell_info(url.strip('/'),preload_es_time[0],preload_es_time[1])
+    print u'该时间段portal提交总预加载条数为：{0}'.format(preload_num).encode('utf8')
+    print u'{0}'.format(preload_shell_info).encode('utf8')
     '''检查ng数据'''
     Display_ng(Time_use['starttime'],Time_use['endtime'],app)
     '''FC检查cache报错是否文件系统写满'''
@@ -517,7 +574,7 @@ if __name__ == '__main__':
         for item in top_flow_url:
             print u'\t{0}MB\t{1}'.format(round(item[1] / 1024.0, 2), item[0])
         #url数量 top 5
-        print u'请求url次数 TOP 5 :'.encode('utf8')
+        print u'\n请求url次数 TOP 5 :'.encode('utf8')
         top_num_url = sorted(num_url.iteritems(), key=lambda d: d[1], reverse=True)[:5]
         print u'\t{0}\t{1}\t{2:>5}\t{3}'.format('次数', '压缩\非压缩', 'hash个数', 'URL').encode('utf8')
         for item in top_num_url:
