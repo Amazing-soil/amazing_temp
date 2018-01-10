@@ -292,7 +292,7 @@ def run_info(Time_use):
             print '\t{0}\t{1}\t{2}%\t{3}'.format(i[1][0], i[0], round(float(i[1][0]) / float(sumnum_mate),4) * 100,i[1][2])
         # 占用流量最高的url top 10
         print color.yellow(u'占用流量最高的url TOP 10 :'.encode('utf8'))
-        top_flow_url = sorted(flow_url.iteritems(), key=lambda d: d[1], reverse=True)[:11]
+        top_flow_url = sorted(flow_url.iteritems(), key=lambda d: d[1], reverse=True)[1:11]
         for item in top_flow_url:
             print u'\t{0}MB\t{1}'.format(round(item[1] / 1024.0, 2), item[0])
         #url数量 top 10
