@@ -4,15 +4,14 @@
 # @Author  : yao.liu
 # @File    : test.py
 
-import json
+
 import requests
+import hashlib
 import commands
-import datetime,time
 import sys
-import re
 import os
 import getopt
-import signal
+
 reload(sys)
 sys.setdefaultencoding('utf8')
 helptext = u'''
@@ -108,6 +107,21 @@ def opts_get():
             opts_dir['ip2'] = value
     return opts_dir
 
+def url_md5(url,ip_port):
+    url_compare_result_dict = {'gzip':'','ungzip':''}
+    requests.packages.urllib3.disable_warnings()
+    proxies = {'http':'http://{0}'.format(ip_port),'https':'https://{0}'.format(ip_port)}
+    '''非压缩MD5'''
+    res = requests.get(url,verify=False,proxies=proxies)
+    md5check = hashlib.md5()
+    md5check.update(res.content)
+    url_compare_result_dict['ungzip'] = md5check.hexdigest()
+    '''压缩MD5'''
+    res_gzip = requests.get(url, verify=False, proxies=proxies, headers={'Accept-Encoding': 'gzip'})
+    md5check = hashlib.md5()
+    md5check.update(res_gzip.content)
+    url_compare_result_dict['gzip'] = md5check.hexdigest()
+    return url_compare_result_dict
 
 if __name__ == '__main__':
     # 收集脚本参数
@@ -136,15 +150,30 @@ if __name__ == '__main__':
         for sumnum, line in enumerate(f1):
             try:
                 LineItem['ClientIp'] = line.split()[2]
+                LineItem['Method'] = line.split()[5]
                 LineItem['Url'] = line.split()[6]
             except:
                 break
-        if LineItem['ClientIp'] == opts_dir['cip']:
-            sumnum_mate += 1
-            if not Compare_url.has_key(LineItem['Url']):
-                Compare_url[LineItem['Url']] = {opts_dir['ip1']:{'gzip':'','unzip':''},opts_dir['ip2']:{'gzip':'','unzip':''}}
+            if LineItem['ClientIp'] == opts_dir['cip'] and LineItem['Method'] == 'GET':
+                sumnum_mate += 1
+                if not Compare_url.has_key(LineItem['Url']):
+                    Compare_url[LineItem['Url']] = {opts_dir['ip1']:{'gzip':'','ungzip':''},opts_dir['ip2']:{'gzip':'','ungzip':''}}
         if sumnum_mate == 0:
             print '没有筛选到符合条件的日志'
             os.remove(greplogpath)
             exit()
-    print Compare_url
+    print u'开始比对url压缩非压缩MD5值'.encode('utf8')
+    for key,vaule in Compare_url.iteritems():
+        url = key
+        for ip in vaule.keys():
+            url_compare_result_dict = url_md5(url, ip)
+            vaule[ip]['gzip'] = url_compare_result_dict['gzip']
+            vaule[ip]['ungzip'] = url_compare_result_dict['ungzip']
+    for key,vaule in Compare_url.iteritems():
+        keys_list = vaule.keys()
+        if not vaule[keys_list[0]]['gzip'] == vaule[keys_list[1]]['gzip']:
+            print 'gzip:{0}\n{1}:{2}\n{3}:{4}'.format(key,vaule[keys_list[0]],vaule[keys_list[0]]['gzip'],vaule[keys_list[1]],vaule[keys_list[1]]['gzip'])
+        if not vaule[keys_list[0]]['ungzip'] == vaule[keys_list[1]]['ungzip']:
+            print 'ungzip:{0}\n{1}:{2}\n{3}:{4}'.format(key, vaule[keys_list[0]], vaule[keys_list[0]]['ungzip'], vaule[keys_list[1]], vaule[keys_list[1]]['ungzip'])
+        else:
+            print u'压缩非压缩验证一致:\t{0}'.format(key).encode('utf-8')
