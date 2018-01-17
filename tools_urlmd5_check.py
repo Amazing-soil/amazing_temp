@@ -4,7 +4,7 @@
 # @Author  : yao.liu
 # @File    : tools_urlmd5_check.py
 __author__ = 'yao.liu'
-__version__ = 'v1.0'
+__version__ = 'v1.1'
 __scriptname__ = 'tools_urlmd5_check.py'
 
 import requests
