@@ -170,6 +170,9 @@ def opts_get():
                 print u'输入有误，请输入 -h 查看使用方法'.encode('utf-8')
                 exit()
             opts_dir['ip2'] = value
+    if not opts_dir.has_key('ip1') and not opts_dir.has_key('ip1') and  not opts_dir.has_key('cip'):
+        print color.red(u'输入参数不全，请添加完整cip，ip1，ip2 ,可输入-h 查看详细帮助信息'.encode('utf8'))
+        exit()
     return opts_dir
 
 class Colored(object):
