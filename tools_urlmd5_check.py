@@ -22,7 +22,7 @@ bre 设备对应频道对应时间，过滤来源ip的访问url，抓取对比�
 -h \t输出帮助信息
 -t\t(必填)筛选时间区间,格式xxx(起始时间)-xxx（结束时间）,如筛选2017年5月10日19点的日志：-t 2017051019-2017051020
 --url=\t(必填)筛选要过滤的频道或url，支持泛匹
---cip=168.235.205.197\t(必填)筛选要过滤的来源ip
+--cip=168.235.205.197\t(必填)筛选要过滤的客户端ip
 --ip1=163.53.89.116:80\t(必填)需要对比的ip及访问端口
 --ip2=163.53.89.116:80\t(必填)需要对比的ip及访问端口
 程序支持:bre自动化运维组<bre-ops-dev@chinacache.com>
@@ -187,19 +187,32 @@ class Colored(object):
         return self.color_str('YELLOW', s)
 
 def url_md5(url,ip_port):
+    '''返回url的压缩和非压缩MD5值 字典'''
     url_compare_result_dict = {'gzip':'','ungzip':''}
     requests.packages.urllib3.disable_warnings()
+    '''设置代理，抓取的url和端口'''
     proxies = {'http':'{0}'.format(ip_port)}
+    '''区分http和https抓取方式'''
     if url.split(':')[0] == 'http' :
-        res_gzip = requests.get(url, proxies=proxies, headers={'Accept-Encoding': 'gzip'})
-        res = requests.get(url,proxies=proxies)
+        try:
+            res_gzip = requests.get(url, proxies=proxies, headers={'Accept-Encoding': 'gzip'},timeout=3)
+            res = requests.get(url,proxies=proxies,timeout=3)
+        except:
+            print color.yellow(u'抓取失败，请检查对比ip和访问端口是否正确：{0} ip {1}'.format(url,ip_port).encode('utf8'))
+            return 0
     else:
+        '''https，取uri，host拼接url'''
         uri = url.split('/',3)[3]
         host = url.split('/',3)[2]
         urls = 'https://{0}/{1}'.format(ip_port,uri)
-        res_gzip = requests.get(urls, verify=False, headers={'Accept-Encoding': 'gzip','Host':host})
-        res = requests.get(urls, verify=False,headers={'Host':host})
+        try:
+            res_gzip = requests.get(urls, verify=False, headers={'Accept-Encoding': 'gzip','Host':host},timeout=3)
+            res = requests.get(urls, verify=False,headers={'Host':host},timeout=3)
+        except:
+            print color.yellow(u'抓取失败，请检查对比ip和访问端口是否正确：{0} host {1}'.format(urls, host).encode('utf8'))
+            return 0
     try:
+        '''抓取状态码非200，显示提示，异常状态码会影响MD5校验的准确性'''
         res.raise_for_status()
     except:
         print color.yellow(u'抓取非200状态码,MD5一致 提醒：{0} code {1} ip {2}'.format(url,res.status_code,ip_port).encode('utf8'))
@@ -229,7 +242,9 @@ if __name__ == '__main__':
     app = witchapp()
     logpath = {"Fc": "/data/proclog/log/squid/access/", "Hpcc": "/data/proclog/log/hpc/access/",
                "ATS": "/data/proclog/log/hpc/access/"}.get(app)
+    #整合过滤日志的时间
     Time_use = FormatTimerange(opts_dir['timerange'])
+    #找到对应时间日志包
     greplogpath = LogTogether(GetFileName(Time_use['starttime'], Time_use['endtime']))
     if not os.path.exists(greplogpath):
         print color.red(u'选中的时间段内没有找到对应日志包,请确认时间段是否有误'.encode('utf8'))
@@ -248,8 +263,10 @@ if __name__ == '__main__':
                 LineItem['Url'] = line.split()[6]
             except:
                 break
+            #过滤出匹配客户端ip的数据
             if LineItem['ClientIp'] == opts_dir['cip'] and LineItem['Method'] == 'GET':
                 sumnum_mate += 1
+                #重复url只记录一次
                 if not Compare_url.has_key(LineItem['Url']):
                     Compare_url[LineItem['Url']] = {opts_dir['ip1']:{'gzip':'','ungzip':''},opts_dir['ip2']:{'gzip':'','ungzip':''}}
         if sumnum_mate == 0:
@@ -259,12 +276,17 @@ if __name__ == '__main__':
             exit()
         os.remove(greplogpath)
     print u'开始比对url压缩非压缩MD5值'.encode('utf8')
+    #循环对比每个url，键为url，值为对比ip的压缩非压缩字典
     for key,vaule in Compare_url.iteritems():
         url = key
         for ip in vaule.keys():
+            #计算对比ip的压缩非压缩MD5，填充字典值
             url_compare_result_dict = url_md5(url, ip)
-            vaule[ip]['gzip'] = url_compare_result_dict['gzip']
-            vaule[ip]['ungzip'] = url_compare_result_dict['ungzip']
+            #若不是异常退出，则赋值MD5
+            if not url_compare_result_dict == 0:
+                vaule[ip]['gzip'] = url_compare_result_dict['gzip']
+                vaule[ip]['ungzip'] = url_compare_result_dict['ungzip']
+    #根据数据结果，对比并展示
     for key,vaule in Compare_url.iteritems():
         keys_list = vaule.keys()
         if not vaule[keys_list[0]]['gzip'] == vaule[keys_list[1]]['gzip']:
