@@ -192,6 +192,7 @@ def check_preload_info(channel,stime,etime):
         ID = res.text
     except:
         return None
+    '''查找portal是否有预加载'''
     url_portal = 'http://223.202.204.189:81/Amazing61/seek_preload_sys/'
     data = {"ID":ID,"stime":stime,"etime":etime}
     try:
@@ -201,6 +202,7 @@ def check_preload_info(channel,stime,etime):
         return None
 
 def check_preload_shell_info(channel,stime,etime):
+    '''检查是否有进行shell的脚本预加载'''
     headers = {'content-type': 'application/x-www-form-urlencoded'}
     url_shell = 'http://223.202.204.189:81/Amazing61/seek_preload_shell/'
     data = {"channel": channel, "stime": stime, "etime": etime}
