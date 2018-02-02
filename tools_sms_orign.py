@@ -105,17 +105,17 @@ class Colored(object):
     def yellow(self, s):
         return self.color_str('YELLOW', s)
 
-def dispaly_sms(result_dict):
-    print color.green('{0:<15}{1:<20}{2:<20}{3:<10}'.format(u'方式'.encode('utf8'),
+def dispaly_sms(result_dict):      
+    print color.green('{0:<15}{1:<20}{2:<30}{3:<10}'.format(u'方式'.encode('utf8'),
                                                             u'目标ip'.encode('utf8'),
                                                             u'回源域名'.encode('utf8'),
                                                             u'权重系数'.encode('utf8'),
                                                             ))
     ip = result_dict.keys()[0]
-    print '{0:<10}{1:<20}{2:<20}{3:<10}'.format(result_dict[ip]['methods'],
+    print '{0:<10}{1:<20}{2:<30}{3:<10}'.format(result_dict[ip]['methods'],
                                                 ip,
                                                 result_dict[ip]['vhost'],
-                                                result_dict[ip]['weight'],
+                                                result_dict[ip]['weight'].replace(';\n',''),
                                                 )
 
 if __name__ == '__main__':
@@ -134,20 +134,22 @@ if __name__ == '__main__':
     color = Colored()
     #查询本机配置
     first_lay = seek_sms_orign(host)
-    print '本机配置：'
-    for i in first_lay:
-        dispaly_sms(i)
+    print color.yellow(u'本机配置：'.encode('utf8'))
+    for k,v in first_lay.items():
+        i_dict = {k:v}
+        dispaly_sms(i_dict)
     ip1 = first_lay.keys()[0]
     if ccip_switch_dev(ip1):
-        print '上游配置：'
+        print color.yellow(u'上游配置：'.encode('utf8'))
         #根据ip返回设备名
         dev_name = ccip_switch_dev(ip1)
         #查找第二层配置
         second_lay = eval(sms_conf_seek(dev_name, first_lay[ip1]['vhost']))
         if second_lay:
             try:
-                for i in second_lay:
-                    dispaly_sms(i)
+                for k,v in second_lay.items():
+                    i_dict = {k:v}
+                    dispaly_sms(i_dict)
             except:
                 print '联动上层查找配置时，发现上层没有同步最新的自动化工具路径，请手动确认'
         else:

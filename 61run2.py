@@ -4,50 +4,41 @@
 # @Author  : yao.liu
 # @File    : sms_orign_conf.py
 
-import os
-import re
-import sys
 
-def seek_sms_orign(host):
-    if os.path.exists('C:\\Users\\yao.liu\\Desktop\\old_nginx.conf'):
-        flag = 0
-        #with open('/usr/local/sms/conf/nginx.conf',r) as fn:
-        with open('C:\\Users\\yao.liu\\Desktop\\old_nginx.conf','r') as fn:
-            result_dict = {}
-            for line in fn.readlines():
-                check_ignore = re.search(r'#p',line)
-                if not check_ignore:
-                    #注释内容不处理
-                    if flag == 0:
-                        #回源配置文件开始读取标志
-                        match = re.search('listen 1935',line)
-                        if match:
-                            flag = 1
-                    elif flag == 1:
-                        #域名配置文件开始读取标志
-                        match = re.search(host,line)
-                        if match:
-                            flag = 2
-                    elif flag == 2 :
-                        #流配置文件开始读取标志
-                        match = re.search('rtmp://',line)
-                        match_end = re.search('}',line)
-                        if match:
-                            #处理记录数据
-                            i_pretty = line.lstrip()
-                            ip = i_pretty.split('/')[2]
-                            result_dict[ip] = {'vhost': '', 'methods': '', 'weight': 0}
-                            result_dict[ip]['vhost'] = i_pretty.split('vhost=')[1].split(' ')[0]
-                            result_dict[ip]['methods'] = i_pretty.split(' ')[0]
-                            result_dict[ip]['weight'] = i_pretty.split(' ')[2].split('=')[1]
-                        elif match_end:
-                            flag = 3
-                    elif flag == 3:
-                        # 读取完成，返回数据，退出函数
-                        return result_dict
-    else:
-        return '未找到配置文件，请手动确认/usr/local/sms/conf/nginx.conf '
+import requests
+import json
 
-if __name__ == '__main__':
-    host = sys.argv[1]
-    seek_sms_orign(host)
+class Colored(object):
+    RED = '\033[31m'       # 红色
+    GREEN = '\033[32m'     # 绿色
+    YELLOW = '\033[33m'    # 黄色
+    RESET = '\033[0m'
+    def color_str(self, color, s):
+        return '{}{}{}'.format(getattr(self, color), s, self.RESET)
+    def red(self, s):
+        return self.color_str('RED', s)
+    def green(self, s):
+        return self.color_str('GREEN', s)
+    def yellow(self, s):
+        return self.color_str('YELLOW', s)
+
+def dispaly_sms(result_dict):
+    color = Colored()
+    print type(result_dict)
+    if not isinstance(result_dict,dict):
+        result_dict = eval(result_dict)
+    print type(result_dict)
+    print color.green('{0:<15}{1:<20}{2:<20}{3:<10}'.format(u'方式'.encode('utf8'),
+                                                            u'目标ip'.encode('utf8'),
+                                                            u'回源域名'.encode('utf8'),
+                                                            u'权重系数'.encode('utf8'),
+                                                            ))
+    ip = result_dict.keys()[0]
+    print '{0:<10}{1:<20}{2:<20}{3:<10}'.format(result_dict[ip]['methods'],
+                                                ip,
+                                                result_dict[ip]['vhost'],
+                                                result_dict[ip]['weight'],
+                                                            )
+
+second = str({'116.211.123.6': {'vhost': 'live.kksmg.com', 'methods': 'pull', 'weight': '1'}})
+dispaly_sms(eval(second))
