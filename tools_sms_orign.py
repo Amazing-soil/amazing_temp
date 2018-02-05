@@ -4,11 +4,10 @@
 # @Author  : yao.liu
 # @File    : tools_sms_orign.py
 __author__ = 'yao.liu'
-__version__ = 'v1.0'
+__version__ = 'v1.1'
 __scriptname__ = 'tools_sms_orign.py'
 
 import requests
-import commands
 import sys
 import os
 import getopt
@@ -105,7 +104,8 @@ class Colored(object):
     def yellow(self, s):
         return self.color_str('YELLOW', s)
 
-def dispaly_sms(result_dict):      
+def dispaly_sms(result_dict):
+    #传入参数为字典，格式如：{'180.97.183.224': {'vhost': 'downvideo.cguoguo.com', 'methods': 'pull', 'weight': '2'}}
     print color.green('{0:<15}{1:<20}{2:<30}{3:<10}'.format(u'方式'.encode('utf8'),
                                                             u'目标ip'.encode('utf8'),
                                                             u'回源域名'.encode('utf8'),
@@ -137,22 +137,29 @@ if __name__ == '__main__':
     print color.yellow(u'本机配置：'.encode('utf8'))
     for k,v in first_lay.items():
         i_dict = {k:v}
+        #展示函数参数字典需求
         dispaly_sms(i_dict)
     ip1 = first_lay.keys()[0]
-    if ccip_switch_dev(ip1):
-        print color.yellow(u'上游配置：'.encode('utf8'))
-        #根据ip返回设备名
-        dev_name = ccip_switch_dev(ip1)
-        #查找第二层配置
-        second_lay = eval(sms_conf_seek(dev_name, first_lay[ip1]['vhost']))
-        if second_lay:
-            try:
-                for k,v in second_lay.items():
-                    i_dict = {k:v}
-                    dispaly_sms(i_dict)
-            except:
-                print '联动上层查找配置时，发现上层没有同步最新的自动化工具路径，请手动确认'
+    #判断回源方式是否为pull，push不联动查询
+    if first_lay[ip1]['methods'] == 'pull':
+        #判断回源ip是否我方，我方则联动查询
+        if ccip_switch_dev(ip1):
+            print color.yellow(u'上游配置：'.encode('utf8'))
+            #根据ip返回设备名
+            dev_name = ccip_switch_dev(ip1)
+            #查找第二层配置
+            second_lay = eval(sms_conf_seek(dev_name, first_lay[ip1]['vhost']))
+            if second_lay:
+                try:
+                    for k,v in second_lay.items():
+                        i_dict = {k:v}
+                        #展示函数参数字典需求
+                        dispaly_sms(i_dict)
+                except:
+                    print '联动上层查找配置时，发现上层没有同步最新的自动化工具路径，请手动确认'
+            else:
+                print '上游联动失败，可能是网络问题，可能是上游设备未部署salt，请手动确认，并通知自动化运维组'
         else:
-            print '上游联动失败，可能是网络问题，可能是上游设备未部署salt，请手动确认，并通知自动化运维组'
+            print '查询结束，上游非蓝汛ip'
     else:
-        print '查询结束，上游非蓝汛ip'
+        print '查询结束，push推流，不联动查询'
