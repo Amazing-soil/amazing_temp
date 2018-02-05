@@ -38,7 +38,12 @@ def seek_sms_orign(host):
                             result_dict[ip] = {'vhost': '', 'methods': '', 'weight': 0}
                             result_dict[ip]['vhost'] = i_pretty.split('vhost=')[1].split(' ')[0]
                             result_dict[ip]['methods'] = i_pretty.split(' ')[0]
-                            result_dict[ip]['weight'] = i_pretty.split(' ')[2].split('=')[1]
+                            if re.search('weight=',i_pretty):
+                                for w_i in i_pretty.split(' '):
+                                    if 'weight' in w_i:
+                                        result_dict[ip]['weight'] = w_i.split('=')[1]
+                            else:
+                                result_dict[ip]['weight'] = '0'
                         elif match_end:
                             flag = 3
                     elif flag == 3:
