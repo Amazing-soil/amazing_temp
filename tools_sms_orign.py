@@ -139,6 +139,9 @@ if __name__ == '__main__':
     color = Colored()
     #查询本机配置
     first_lay = seek_sms_orign(host)
+    if not first_lay:
+        print color.red('没有该频道配置，请检查')
+        exit()
     print color.yellow(u'本机配置：'.encode('utf8'))
     for k,v in first_lay.items():
         i_dict = {k:v}

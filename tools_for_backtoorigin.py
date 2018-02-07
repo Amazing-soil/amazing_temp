@@ -200,6 +200,7 @@ def check_preload_info(channel, stime, etime):
         return None
 
 def check_preload_shell_info(channel, stime, etime):
+    #查询是否使用shell脚本预加载
     headers = {'content-type': 'application/x-www-form-urlencoded'}
     url_shell = 'http://223.202.204.189:81/Amazing61/seek_preload_shell/'
     data = {"channel": channel, "stime": stime, "etime": etime}

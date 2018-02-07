@@ -1,18 +1,17 @@
 #!/opt/hopeservice/.venv/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 01/31/2018 16:12
+# @Time    : 07/02/2018 16:12
 # @Author  : yao.liu
 # @File    : tta_orign_conf.py
-
 
 import os
 import re
 import sys
 
 def seek_tta_orign(host):
-    if os.path.exists('C:\\Users\\yao.liu\\Desktop\\61.txt'):
+    if os.path.exists('/usr/local/haproxy/etc/haproxy.cfg'):
         flag = 0
-        with open('C:\\Users\\yao.liu\\Desktop\\61.txt','r') as fn:
+        with open('/usr/local/haproxy/etc/haproxy.cfg','r') as fn:
             result_dict = {}
             for line in fn.readlines():
                 check_ignore = re.search(r'#p',line)
@@ -52,8 +51,7 @@ def seek_tta_orign(host):
     #遍历完成，返回结果字典
     return result_dict
 
-# if __name__ == '__main__':
-#     host = sys.argv[1]
-#     result = seek_tta_orign(host)
-#     print result
-print seek_tta_orign('tta-data.tradingview.com')
+if __name__ == '__main__':
+    host = sys.argv[1]
+    result = seek_tta_orign(host)
+    print result

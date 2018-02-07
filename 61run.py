@@ -5,10 +5,9 @@
 # @File    : tools_sms_orign.py
 __author__ = 'yao.liu'
 __version__ = 'v1.0'
-__scriptname__ = 'tools_sms_orign.py'
+__scriptname__ = 'tools_tta_orign.py'
 
 import requests
-import commands
 import sys
 import os
 import getopt
@@ -19,15 +18,16 @@ import json
 reload(sys)
 sys.setdefaultencoding('utf8')
 helptext = u'''
-bre 设备对应频道查找回源配置，并联动查找下一层回源配置
+bre 设备对应频道查找回源配置
 支持参数：
 -h \t输出帮助信息
 --host=\t(必填)查询指定频道的回源流
+--ip=\t(必填)目标tta虚拟IP
 程序支持:bre自动化运维组<bre-ops-dev@chinacache.com>
 '''
 
-def ccip_switch_dev(ip):
-    '''是蓝汛ip返回设备名,否则返回False'''
+def find_master_dev(ip):
+    '''根据虚拟ip查询宿主机设备名称'''
     url = 'http://223.202.204.189:81/AACode/isccdevice/'
     data = {'ip':'{0}'.format(ip)}
     res = requests.post(url,data=data)
@@ -36,11 +36,11 @@ def ccip_switch_dev(ip):
     else:
         return res.json().get("dn")
 
-def sms_conf_seek(dev,host):
+def tta_conf_seek(dev,host):
     #调用django接口，联动设备查配置
     print '正在联动查找上层回源配置，调用salt受网络影响，请耐心等待'
     headers = {'content-type': 'application/x-www-form-urlencoded'}
-    url = 'http://223.202.204.189:81/Amazing61/sms_orign_ip/'
+    url = 'http://223.202.204.189:81/Amazing61/tta_orign_ip/'
     data = { "vhost":host,"dev":dev }
     res = requests.post(url,data=data,headers=headers)
     if res.status_code == 200:
@@ -48,44 +48,6 @@ def sms_conf_seek(dev,host):
     else:
         return None
 
-def seek_sms_orign(host):
-    if os.path.exists('/usr/local/sms/conf/nginx.conf'):
-        flag = 0
-        with open('/usr/local/sms/conf/nginx.conf','r') as fn:
-            result_dict = {}
-            for line in fn.readlines():
-                check_ignore = re.search(r'#p',line)
-                if not check_ignore:
-                    #注释内容不处理
-                    if flag == 0:
-                        #回源配置文件开始读取标志
-                        match = re.search('listen 1935',line)
-                        if match:
-                            flag = 1
-                    elif flag == 1:
-                        #域名配置文件开始读取标志
-                        match = re.search(host,line)
-                        if match:
-                            flag = 2
-                    elif flag == 2 :
-                        #流配置文件开始读取标志
-                        match = re.search('rtmp://',line)
-                        match_end = re.search('}',line)
-                        if match:
-                            #处理记录数据
-                            i_pretty = line.lstrip()
-                            ip = i_pretty.split('/')[2]
-                            result_dict[ip] = {'vhost': '', 'methods': '', 'weight': 0}
-                            result_dict[ip]['vhost'] = i_pretty.split('vhost=')[1].split(' ')[0]
-                            result_dict[ip]['methods'] = i_pretty.split(' ')[0]
-                            result_dict[ip]['weight'] = i_pretty.split(' ')[2].split('=')[1]
-                        elif match_end:
-                            flag = 3
-                    elif flag == 3:
-                        # 读取完成，返回数据，退出函数
-                        return result_dict
-    else:
-        return '未找到配置文件，请手动确认/usr/local/sms/conf/nginx.conf '
 
 class Colored(object):
     RED = '\033[31m'  # 红色
@@ -105,17 +67,17 @@ class Colored(object):
     def yellow(self, s):
         return self.color_str('YELLOW', s)
 
-def dispaly_sms(result_dict):
-    print color.green('{0:<15}{1:<20}{2:<20}{3:<10}'.format(u'方式'.encode('utf8'),
-                                                            u'目标ip'.encode('utf8'),
+def dispaly_tta(result_dict):
+    #传入参数为字典，格式如：{'218.60.45.49:80': {'IP2': '43.255.229.231:4041', 'src': 'data-cn.tradingview.com:80', 'IP1': '43.255.229.215:4041'}}
+    print color.green('{0:<15}{1:<20}{2:<30}'.format(u'访问类型'.encode('utf8'),
+                                                            u'目标ip port'.encode('utf8'),
                                                             u'回源域名'.encode('utf8'),
-                                                            u'权重系数'.encode('utf8'),
                                                             ))
     ip = result_dict.keys()[0]
-    print '{0:<10}{1:<20}{2:<20}{3:<10}'.format(result_dict[ip]['methods'],
+    print '{0:<10}{1:<20}{2:<30}{3:<10}'.format(result_dict[ip]['methods'],
                                                 ip,
                                                 result_dict[ip]['vhost'],
-                                                result_dict[ip]['weight'],
+                                                result_dict[ip]['weight'].replace(';\n',''),
                                                 )
 
 if __name__ == '__main__':
@@ -131,26 +93,15 @@ if __name__ == '__main__':
             exit()
         elif op == '--host':
             host = value
+        elif op == '--ip':
+            ip = value
     color = Colored()
-    #查询本机配置
-    first_lay = seek_sms_orign(host)
-    print '本机配置：'
-    for i in first_lay:
-        dispaly_sms(i)
-    ip1 = first_lay.keys()[0]
-    if ccip_switch_dev(ip1):
-        print '上游配置：'
-        #根据ip返回设备名
-        dev_name = ccip_switch_dev(ip1)
-        #查找第二层配置
-        second_lay = eval(sms_conf_seek(dev_name, first_lay[ip1]['vhost']))
-        if second_lay:
-            try:
-                for i in second_lay:
-                    dispaly_sms(i)
-            except:
-                print '联动上层查找配置时，发现上层没有同步最新的自动化工具路径，请手动确认'
-        else:
-            print '上游联动失败，可能是网络问题，可能是上游设备未部署salt，请手动确认，并通知自动化运维组'
-    else:
-        print '查询结束，上游非蓝汛ip'
+    #查找宿主设备名称
+    dev = find_master_dev(ip)
+    if not dev:
+        print color.red('未在cms中查询到虚拟ip的设备名称，请手动检查')
+        exit()
+    #调用接口查询tta配置
+    conf_result = tta_sms_orign(dev,host)
+
+
