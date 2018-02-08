@@ -73,9 +73,12 @@ def seek_sms_orign(host):
                         if match:
                             #处理记录数据
                             i_pretty = line.lstrip()
-                            ip = i_pretty.split('/')[2]
+                            ip = i_pretty.split('/')[2].split(' ')[0]
                             result_dict[ip] = {'vhost': '', 'methods': '', 'weight': 0}
-                            result_dict[ip]['vhost'] = i_pretty.split('vhost=')[1].split(' ')[0]
+                            if re.search('vhost=',i_pretty):
+                                result_dict[ip]['vhost'] = i_pretty.split('vhost=')[1].split(' ')[0]
+                            else:
+                                result_dict[ip]['vhost'] = ip
                             result_dict[ip]['methods'] = i_pretty.split(' ')[0]
                             if re.search('weight=',i_pretty):
                                 for w_i in i_pretty.split(' '):
