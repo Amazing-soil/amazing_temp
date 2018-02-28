@@ -8,6 +8,7 @@
 import commands
 import sys
 import requests
+import os
 from datetime import datetime
 
 reload(sys)
@@ -15,12 +16,12 @@ sys.setdefaultencoding('utf8')
 
 def cname_check(domain):
     '''dig测试域名'''
-    cmd = ' dig @8.8.8.8 {0} +short|grep -E "ccgslb|chinacache" |head -1 '.format(domain)
+    cmd = 'dig @8.8.8.8 {0} +short|grep -E "ccgslb|chinacache"|head -1'.format(domain)
     res = commands.getoutput(cmd)
     if res:
-        return res
+        return True
     else:
-        return None
+        return False
 
 def sendmail(content):
     '''发送告警邮件'''
@@ -35,9 +36,9 @@ if __name__ == '__main__':
     domain_file = sys.argv[1]
     with open(domain_file,'r') as fn:
         for i in fn.readlines():
-            if cname_check(i):
+            if cname_check(i.strip('\n')):
                 content = '''<meta http-equiv="Content-Type" content="text/html; charset=utf-8"><b>您好【{0}】:</b><table border="1"> \
                 <tbody><tr> <td><div style="text-align:center;margin:0;" align="center"><b>域名切回至蓝汛服务</b></td> </tr><td>{1}'''.format(time_now,i)
                 sendmail(content)
-
-
+                del_cmd = '''sed -i '/{0}/d' {1}'''.format(i.strip('\n'),domain_file)
+                os.system(del_cmd)
