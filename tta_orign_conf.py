@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # @Time    : 07/02/2018 16:12
 # @Author  : yao.liu
-# @File    : tta_orign_conf.py
+# @File    : tta_orign_conf.py  #参数为查询域名，返回对应配置信息
 
 import os
 import re

@@ -102,6 +102,8 @@ if __name__ == '__main__':
         print color.red('未在cms中查询到虚拟ip的设备名称，请手动检查')
         exit()
     #调用接口查询tta配置
-    conf_result = tta_sms_orign(dev,host)
+    conf_result = tta_conf_seek(dev,host)
+    if conf_result:
+        dispaly_tta(conf_result)
 
 

@@ -1,59 +1,44 @@
 #!/opt/hopeservice/.venv/bin/python
-# -*- coding: utf-8 -*-
-# @Time    : 01/31/2018 16:12
+# -*- coding: UTF-8 -*-
+# @Time    : 27/02/2018 10:00
 # @Author  : yao.liu
-# @File    : tta_orign_conf.py
+# @File    : cname_detect.py
+# version  : 1.0
 
-
-import os
-import re
+import commands
 import sys
+import requests
+import re
+from datetime import datetime
 
-def seek_tta_orign(host):
-    if os.path.exists('C:\\Users\\yao.liu\\Desktop\\61.txt'):
-        flag = 0
-        with open('C:\\Users\\yao.liu\\Desktop\\61.txt','r') as fn:
-            result_dict = {}
-            for line in fn.readlines():
-                check_ignore = re.search(r'#p',line)
-                if not check_ignore:
-                    #注释内容不处理
-                    if flag == 0:
-                        #回源配置文件开始读取标志
-                        match = re.search(host,line)
-                        if match:
-                            flag = 1
-                    elif flag == 1:
-                        #访问端口开始读取标志
-                        match = re.search('bind',line)
-                        if match:
-                            ip_port = line.strip().split(' ')[1]
-                            if not result_dict.has_key(ip_port):
-                                result_dict[ip_port] = {}
-                            flag = 2
-                    elif flag == 2 :
-                        #域名回源配置文件开始读取标志
-                        match = re.search('backup',line)
-                        if not match:
-                            #处理上层配置信息
-                            IP = line.strip().split(' ')[1]
-                            if not result_dict[ip_port].has_key(IP):
-                                result_dict[ip_port][IP] = {}
-                            result_dict[ip_port][IP] = line.strip().split(' ')[2]
-                        else:
-                            #处理回源配置信息
-                            result_dict[ip_port]['src'] = line.strip().split(' ')[2]
-                            flag = 3
-                    elif flag == 3:
-                        #读取完成该访问端口类型
-                        flag = 0
+reload(sys)
+sys.setdefaultencoding('utf8')
+
+def cname_check(domain):
+    '''dig测试域名'''
+    cmd = ' dig @8.8.8.8 {0} '.format(domain)
+    res = commands.getoutput(cmd)
+    match = re.compile('ccgslb|chinacache',res)
+    if match:
+        return True
     else:
-        return '未找到配置文件，请手动确认/usr/local/sms/conf/nginx.conf '
-    #遍历完成，返回结果字典
-    return result_dict
+        return None
 
-# if __name__ == '__main__':
-#     host = sys.argv[1]
-#     result = seek_tta_orign(host)
-#     print result
-print seek_tta_orign('tta-data.tradingview.com')
+def sendmail(content):
+    '''发送告警邮件'''
+    #填写收件人
+    data = {'tos': 'yao.liu@chinacache.com',
+            'subject': '[devops] cname_detect -域名已切回蓝汛加速',
+            'content': '{}'.format(content)}
+    res = requests.post('http://223.202.201.32:8700/email', data=data)
+
+if __name__ == '__main__':
+    time_now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    domain_file = sys.argv[1]
+    with open(domain_file,'r') as fn:
+        for i in fn.readlines():
+            if cname_check(i):
+                content = '''<meta http-equiv="Content-Type" content="text/html; charset=utf-8"><b>您好【{0}】:</b><table border="1"> \
+                <tbody><tr> <td><div style="text-align:center;margin:0;" align="center"><b>域名切回至蓝汛服务</b></td> </tr><td>{1}'''.format(time_now,i)
+                sendmail(content)
+
