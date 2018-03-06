@@ -4,7 +4,7 @@
 # @Author  : yao.liu
 # @File    : tools_sms_orign.py
 __author__ = 'yao.liu'
-__version__ = 'v1.1'
+__version__ = 'v1.2'
 __scriptname__ = 'tools_sms_orign.py'
 
 import requests
@@ -43,9 +43,13 @@ def sms_conf_seek(dev,host):
     data = { "vhost":host,"dev":dev }
     res = requests.post(url,data=data,headers=headers)
     if res.status_code == 200:
-        return res.json()[dev]
+        try:
+            return res.json()[dev]
+        except:
+            print '无法读取设备配置{0}，请手动确认设备是否可用'.format(data.get('dev'))
+            return False
     else:
-        return None
+        return False
 
 def seek_sms_orign(host):
     if os.path.exists('/usr/local/sms/conf/nginx.conf'):
@@ -159,8 +163,9 @@ if __name__ == '__main__':
             #根据ip返回设备名
             dev_name = ccip_switch_dev(ip1)
             #查找第二层配置
-            second_lay = eval(sms_conf_seek(dev_name, first_lay[ip1]['vhost']))
+            second_lay = sms_conf_seek(dev_name, first_lay[ip1]['vhost'])
             if second_lay:
+                second_lay = eval(second_lay)
                 try:
                     for k,v in second_lay.items():
                         i_dict = {k:v}
